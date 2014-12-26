@@ -195,7 +195,7 @@ of the symbol is indented relative to the current line."
            (skip-syntax-forward " ")
            (when (= 0 (forward-line))
              (back-to-indentation)
-             (<= here (current-column)))))))
+             (< here (current-column)))))))
 
 (defun composite-symbols--compose (char-spec &optional group)
   "Replace current match group with the character given by CHAR-SPEC.
@@ -357,7 +357,7 @@ broken."
     ("Int" . #x2124)
     ("Float64" . #x211d)
     ("Complex" . #x2102)
-    ("function" . #x3bb)
+    ("function" . ("function" 0 #x3bb "\n[[:space:]]*\\="))
     ("..." . ("\\.\\.\\." 0 #x2026))
 
     ;; haskell
@@ -743,15 +743,18 @@ Execute these directly to generate greek alphabet character list:
    ;; (composite-symbols-from-defaults '("=="))
    ;; And "NOT EQUAL TO" is too small and too close to EQUAL TO
    ;; (list (composite-symbols-keyword "!=" 0 #x2260))
-   (composite-symbols-from-defaults '("!" "!=" "||" "and" "or" "not"))
+   (composite-symbols-from-defaults '("!" "!=" "and" "or" "not"))
    composite-symbols-binary-logical
-   ;; composite-symbols-binary-logical
-   ;; move constructors "A(A&&)" make this a special case
-   (list (composite-symbols-keyword-with-spaces "&&" 0 #x2227))
+
+   (list
+    ;; Require spaces because of move constructors
+    (composite-symbols-keyword "&&" 0 #x2227 "[_[:alnum:]] *\\=")
+    ;; handle "while (x --> 0);"
+    (composite-symbols-keyword "->" 0 #x2192 "-\\="))
    composite-symbols-comparison
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
-   (composite-symbols-from-defaults '("::" "->" "nullptr" "NULL")))
+   (composite-symbols-from-defaults '("::" "nullptr" "NULL")))
   "Standard logical, comparison, member-access characters.
 Also namespace access, right arrow, nullptr and NULL.")
 
@@ -797,13 +800,30 @@ take precedence.")
   "Special symbols for julia.")
 
 (defvar composite-symbols-default-mode-alist
-  ;; FIXME This list is *very* incomplete
-  `((c-mode . composite-symbols-cc-rules)
+  ;; FIXME This list is *very* incomplete and untested
+  `(;; C-style
+    (c-mode . composite-symbols-cc-rules)
     (c++-mode . composite-symbols-cc-rules)
     (objc-mode . composite-symbols-cc-rules)
+    (sh-mode . composite-symbols-cc-rules)
+    (perl-mode . composite-symbols-cc-rules)
+    (java-mode . composite-symbols-cc-rules)
+    (ess-mode . composite-symbols-cc-rules)
+    (ruby-mode . composite-symbols-cc-rules)
+    (javascript-mode . composite-symbols-cc-rules)
+
     (python-mode . composite-symbols-python-rules)
+
     (haskell-mode . composite-symbols-haskell-rules)
+    (tuareg-mode . composite-symbols-haskell-rules)
+    (sml-mode . composite-symbols-haskell-rules)
+    (fsharp-mode . composite-symbols-haskell-rules)
+
     (emacs-lisp-mode . composite-symbols-lisp-rules)
+    (scheme-mode . composite-symbols-lisp-rules)
+    (lisp-mode . composite-symbols-lisp-rules)
+    (clojure-mode . composite-symbols-lisp-rules)
+
     (julia-mode . composite-symbols-julia-rules))
   "An alist mapping modes to their default sets of composite symbol rules.")
 
