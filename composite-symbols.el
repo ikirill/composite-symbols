@@ -29,6 +29,7 @@
 ;; be modified).
 ;;
 ;; To use:
+;;
 ;; - `composite-symbols-mode' enables special symbols in some default
 ;;   programming languages. If your language is not supported, open an
 ;;   issue on github, or define your own configuration. If the mode
@@ -37,6 +38,8 @@
 ;; - `composite-symbols-greek-mode' shows all non-ambiguous Greek
 ;;   letters that are spelled in English as the corresponding Greek
 ;;   letters.
+;; - `composite-symbols-ignore-indentation' controls whether the mode
+;;   is allowed to "break" indentation by changing lengths of lines.
 ;; - For a starting point configuring your own replacement rules, look
 ;;   at the definition of `composite-symbols-assign-arrow-mode'.
 ;;
@@ -81,7 +84,7 @@ be modified)."
   :group 'faces
   :link '(function-link composite-symbols-mode))
 
-(defcustom composite-symbols-ignore-indentation t
+(defcustom composite-symbols-ignore-indentation nil
   "Whether indentation can be ignored when composing symbols.
 
 If non-nil, the resulting indentation will be based on
@@ -167,6 +170,21 @@ then MATCH will not be replaced."
               (composite-symbols--compose-check
                ,char-spec ,match-group ,reject-before ,reject-after)))))
 
+(defun composite-symbols--breaks-indentation (start end)
+  "Whether the replacing the given length of text with one symbol
+would break indentation.
+
+Works by assuming that any line indented to the right of the end
+of the symbol is indented relative to the current line."
+  (and (> end (1+ start))
+       (save-excursion
+         (goto-char end)
+         (let ((here (current-column)))
+           (skip-syntax-forward " ")
+           (when (= 0 (forward-line))
+             (back-to-indentation)
+             (<= here (current-column)))))))
+
 (defun composite-symbols--compose (char-spec &optional group)
   "Replace current match group with the character given by CHAR-SPEC.
 
@@ -175,10 +193,14 @@ The match group is GROUP, which defaults to 0.
 This function is supposed to evaluate to facespec, as described
 in `font-lock-keywords'."
   (unless group (setq group 0))
-  (if (memq (get-text-property (match-beginning group) 'face)
-            composite-symbols-ignored-faces)
-      (remove-text-properties (match-beginning group) (match-end group) '(composition))
-    (compose-region (match-beginning group) (match-end group) char-spec))
+  (let* ((start (match-beginning group))
+         (end (match-end group))
+         (invalid-face (memq (get-text-property start 'face)
+                             composite-symbols-ignored-faces)))
+    (when (and (not invalid-face)
+               (or composite-symbols-ignore-indentation
+                   (not (composite-symbols--breaks-indentation start end))))
+      (compose-region start end char-spec)))
   nil)
 
 (defun composite-symbols--compose-check
@@ -196,23 +218,45 @@ the beginning of match, the match will not be replaced.
 REJECT-AFTER is like REJECT-BEFORE, but point is placed at the
 end of the current match."
   (unless match-group (setq match-group 0))
-  (let ((start (match-beginning match-group))
-        (end (match-end match-group)))
-    (if (or
-         (memq (get-text-property start 'face) composite-symbols-ignored-faces)
-         (and reject-before
-              (save-match-data
-                (save-excursion
-                  (goto-char start)
-                  (re-search-backward reject-before (line-beginning-position) t))))
-         (and reject-after
-              (save-match-data
-               (save-excursion
-                 (goto-char end)
-                 (re-search-forward reject-after (line-end-position) t)))))
-        (remove-text-properties start end '(composition))
+  (let* ((start (match-beginning match-group))
+         (end (match-end match-group))
+         (invalid-face (memq (get-text-property start 'face)
+                             composite-symbols-ignored-faces)))
+    (when (and (not invalid-face)
+               (or composite-symbols-ignore-indentation
+                   (not (composite-symbols--breaks-indentation start end)))
+               (not
+                (and reject-before
+                     (save-match-data
+                       (save-excursion
+                         (goto-char start)
+                         (re-search-backward reject-before
+                                             (line-beginning-position) t)))))
+               (not
+                (and reject-after
+                     (save-match-data
+                       (save-excursion
+                         (goto-char end)
+                         (re-search-forward reject-after
+                                            (line-end-position) t))))))
       (compose-region start end char-spec))
     nil))
+
+(defvar composite-symbols-defaults)
+
+(defun composite-symbols--compose-default ()
+  "Compose a symbol based on its default value."
+  (let* ((start (match-beginning 0))
+         (end (match-end 0))
+         (invalid-face (memq (get-text-property start 'face)
+                             composite-symbols-ignored-faces)))
+    (when (and (not invalid-face)
+               (or composite-symbols-ignore-indentation
+                   (not (composite-symbols--breaks-indentation start end))))
+      (let* ((lab (match-string 0))
+             (ass (cdr (assoc lab composite-symbols-defaults))))
+        (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
+  nil)
 
 ;; }}}
 ;; {{{ Appending lists of keywords
@@ -472,16 +516,6 @@ the different regexps are merged together, so that
      (composite-symbols-from-defaults-noopt merge-not))))
 ;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
 ;; (composite-symbols-from-defaults '("!" "!="))
-
-(defun composite-symbols--compose-default ()
-  "Compose a symbol based on its default value."
-  (let ((start (match-beginning 0)) (end (match-end 0)))
-    (if (memq (get-text-property start 'face) composite-symbols-ignored-faces)
-        (remove-text-properties start end '(composition))
-      (let* ((lab (match-string 0))
-             (ass (cdr (assoc lab composite-symbols-defaults))))
-        (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
-  nil)
 
 ;; }}}
 ;; {{{ Default sets of characters
@@ -815,6 +849,9 @@ and \"None\" with <EMPTY SET> '∅' (with default settings, which can
 be modified).
 
 Notes:
+
+- `composite-symbols-ignore-indentation' controls whether the mode
+  is allowed to \"break\" indentation by changing lengths of lines.
 
 - There is a fair amount of variability in what you might prefer to
   see from this package.  See definitions of variables like
