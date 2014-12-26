@@ -197,6 +197,17 @@ of the symbol is indented relative to the current line."
              (back-to-indentation)
              (< here (current-column)))))))
 
+(defun composite-symbols--invalid-face (pos)
+  "Check whether face at POS should cause the symbol there to be ignored."
+  (let ((face (get-text-property pos 'face)))
+    (if (and face (listp face))
+        ;; This is necessary because sometimes face is a face composed
+        ;; of more than one face
+        (apply #'or
+               (mapcar (lambda (it) (memq it composite-symbols-ignored-faces))
+                       face))
+      (memq face composite-symbols-ignored-faces))))
+
 (defun composite-symbols--compose (char-spec &optional group)
   "Replace current match group with the character given by CHAR-SPEC.
 
@@ -206,10 +217,8 @@ This function is supposed to evaluate to facespec, as described
 in `font-lock-keywords'."
   (unless group (setq group 0))
   (let* ((start (match-beginning group))
-         (end (match-end group))
-         (invalid-face (memq (get-text-property start 'face)
-                             composite-symbols-ignored-faces)))
-    (when (and (not invalid-face)
+         (end (match-end group)))
+    (when (and (not (composite-symbols--invalid-face start))
                (or composite-symbols-ignore-indentation
                    (not (composite-symbols--breaks-indentation start end))))
       (compose-region start end char-spec)))
@@ -231,10 +240,8 @@ REJECT-AFTER is like REJECT-BEFORE, but point is placed at the
 end of the current match."
   (unless match-group (setq match-group 0))
   (let* ((start (match-beginning match-group))
-         (end (match-end match-group))
-         (invalid-face (memq (get-text-property start 'face)
-                             composite-symbols-ignored-faces)))
-    (when (and (not invalid-face)
+         (end (match-end match-group)))
+    (when (and (not (composite-symbols--invalid-face start))
                (or composite-symbols-ignore-indentation
                    (not (composite-symbols--breaks-indentation start end)))
                (not
@@ -259,10 +266,8 @@ end of the current match."
 (defun composite-symbols--compose-default ()
   "Compose a symbol based on its default value."
   (let* ((start (match-beginning 0))
-         (end (match-end 0))
-         (invalid-face (memq (get-text-property start 'face)
-                             composite-symbols-ignored-faces)))
-    (when (and (not invalid-face)
+         (end (match-end 0)))
+    (when (and (not (composite-symbols--invalid-face start))
                (or composite-symbols-ignore-indentation
                    (not (composite-symbols--breaks-indentation start end))))
       (let* ((lab (match-string 0))
@@ -270,7 +275,7 @@ end of the current match."
         (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
   nil)
 
-;; }}}
+ ;; }}}
 ;; {{{ Appending lists of keywords
 
 (defun composite-symbols-append (&rest kw-lists)
@@ -772,11 +777,8 @@ None is shown as the empty set, but it could also be shown as ⟂.")
 
 (defvar composite-symbols-lisp-rules
   (composite-symbols-append
-   ;; Logical characters tend to mess up indentation and alignment
-   ;; composite-symbols-logical
-   composite-symbols-not-equals
-   composite-symbols-comparison
-   (composite-symbols-from-defaults '("not" "lambda")))
+   (composite-symbols-from-defaults
+    '("/=" "<=" ">=" "and" "not" "or" "lambda")))
   "Standard symbols for lisp.")
 
 (defvar composite-symbols-haskell-rules
