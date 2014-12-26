@@ -47,7 +47,7 @@
 ;;
 ;; - There is a fair amount of variability in what you might prefer to
 ;;   see from this package.  See definitions of variables like
-;;   `composite-symbols-cc-list' to see how to define your own sets of
+;;   `composite-symbols-cc-rules' to see how to define your own sets of
 ;;   composite symbol replacements.
 ;;
 ;; - Many of these characters might be missing from your default
@@ -97,7 +97,10 @@ composite-symbols-mode.
 
 For examples, see:
  - `composite-symbols-defaults'
- - `composite-symbols-default-mode-alist'"
+ - `composite-symbols-default-mode-alist'
+
+To specify a character code, use `insert-char' (e.g., ?≠) or a
+hex code such as #x2260."
   :group 'composite-symbols
   ;; NOTE This *must* be consistent with composite-symbols--compile-user
   :type
@@ -122,11 +125,11 @@ For examples, see:
        (cons :tag "Custom rule"
              (string :tag "Name (replaced string)")
              (choice :tag "Rule"
-                     (integer :tag "Replacement unicode hex")
+                     (integer :tag "Replacement char code")
                      (list :tag "Detailed rule"
                            (string :tag "Match regex")
                            (integer :tag "Match group")
-                           (integer :tag "Unicode hex")
+                           (integer :tag "Character code")
                            (choice :tag "Reject before"
                                    (const nil)
                                    (string :tag "Regex"))
@@ -531,8 +534,14 @@ NOTE \"!=\" should come before \"!\" for correct fontification.")
   (list
    ;; With ">>" must use a hack to not replace brackets around
    ;; C++ template arguments; requires a space to the left of ">>"
-   (composite-symbols-keyword ">>" 0 (decode-char 'ucs #X226B) "[^ ]\\=")
-   (composite-symbols-keyword "<<" 0 (decode-char 'ucs #X226A) "<\\=" "\\=<"))
+   (composite-symbols-keyword
+    ">>" 0 #X226B
+    (rx (not (any control space)) point)
+    (rx point (not (any control space))))
+   (composite-symbols-keyword
+    "<<" 0 #X226A
+    (rx (not (any control space)) point)
+    (rx point (not (any control space)))))
   "Standard binary logical operators.")
 
 (defvar composite-symbols-comparison
@@ -854,10 +863,10 @@ Notes:
 - `composite-symbols-ignore-indentation' controls whether the mode
   is allowed to \"break\" indentation by changing lengths of lines.
 
-- There is a fair amount of variability in what you might prefer to
-  see from this package.  See definitions of variables like
-  `composite-symbols-cc-list' to see how to define your own sets of
-  composite symbol replacements.
+- There is a fair amount of variability in what you might prefer
+  to see from this package.  See definitions of variables like
+  `composite-symbols-cc-rules' to see how to define your own sets
+  of composite symbol replacements.
 
 - Many of these characters might be missing from your default
   fonts.  It may be helpful to install the package `unicode-fonts',
