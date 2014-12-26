@@ -172,6 +172,9 @@ too far to the right.
 
 REJECT-AFTER is a regexp such that if it matches just after MATCH,
 then MATCH will not be replaced."
+  (when (not match) (error "composite-symbols-keyword: match cannot be nil"))
+  (when (not char-spec)
+    (error "composite-symbols-keyword: char-spec cannot be nil"))
   (when (numberp char-spec)
     (setq char-spec (decode-char 'ucs char-spec)))
   (if (and (not reject-before) (not reject-after))
@@ -275,7 +278,7 @@ end of the current match."
         (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
   nil)
 
- ;; }}}
+;; }}}
 ;; {{{ Appending lists of keywords
 
 (defun composite-symbols-append (&rest kw-lists)
@@ -460,35 +463,47 @@ STRING-DEFAULT can be:
 
 CHAR-SPEC can be an integer or anything else (passed to
 `compose-region' directly).")
-;; (makunbound 'composite-symbols-defaults)
 
 (defvar composite-symbols-defaults-extra
-  '((:c++
+  `((:c++
      ;; Handle move constructors
-     ("&&" "&&" 0 #x2227 (rx (any alnum ?_) (* (any space)) point))
+     ("&&" "&&" 0 #x2227 ,(rx (any alnum ?_) point))
      ;; handle "while (x --> 0);"
      ("->" "->" 0 #x2192 "-\\=" "\\=>")
      ;; Do not require <> to have symbol syntax
      ;; Handle template arguments like S<T<U>>
-     (">>" ">>" 0 #x226b "[[:alnum:]_] *\\=")
-     ("<<" "<<" 0 #x226a))
+     (">>" ">>" 0 #x226b "[[:alnum:]_]\\=")
+     ("<<" "<<" 0 #x226a)
+     ;; Avoid >>=, <<=
+     (">=" ">=" 0 #x2265 ">\\=")
+     ("<=" "<=" 0 #x2264 "<\\="))
     (:python
-     ("not" "\\_<not\\_>" 0 #xac "\\_<is *\\=")))
+     ("not" "\\_<not\\_>" 0 #xac "\\_<is *\\=")
+     ("<<" "<<" 0 #x226a)
+     (">>" ">>" 0 #x226b)))
   "List of common mode-specific defaults.")
 
 ;; }}}
 ;; {{{ Making default keywords
 
-(defun composite-symbols-from-defaults-noopt (names)
+(defun composite-symbols--default-lookup (label lang)
+  (cdr (assoc label
+              (if lang
+                  (cdr (assoc lang composite-symbols-defaults-extra))
+                composite-symbols-defaults))))
+
+(defun composite-symbols-from-defaults-noopt (names &optional lang)
   "Return the default keywords for each string in NAMES.
+
+If LANG is non-nil, `composite-symbols-defaults-extra' will also
+be examined.
 
 Same as `composite-symbols-from-defaults', but with no attempt at
 optimizations."
   (mapcar
    (lambda (n)
-     (let ((d (assoc n composite-symbols-defaults)))
+     (let ((d (composite-symbols--default-lookup n lang)))
        (unless d (error "Missing default character: %s" n))
-       (setq d (cdr d))
        (cond
         ((integerp d)
          (if (string-match-p "[[:alpha:]_][[:alnum:]_]*" n)
@@ -510,17 +525,22 @@ optimizations."
 Keywords for multiple labels will be merged if possible, as
 WORD-SEPARATORS, which defaults to 'symbols (see `regexp-opt').
 
+If LANG is non-nil, `composite-symbols-defaults-extra' will also
+be examined.
+
 This is the same as `composite-symbols-from-defaults-noopt', but
 the different regexps are merged together, so that
 `font-lock-keywords' will be shorter."
   (setq word-separators (or word-separators 'symbols))
-  (let (merge-opt merge-rest merge-not merged-regex bad-labels)
+  (let (merge-opt merge-rest merge-not merged-regex)
     ;; Check for bad labels that are missing from defaults
-    (setq bad-labels (cl-remove-if
-                      (lambda (lab) (assoc lab composite-symbols-defaults))
-                      labels))
-    (when bad-labels
-      (message "Missing defaults for labels: %s" bad-labels))
+    (let ((bad-labels
+           (cl-remove-if
+            (lambda (lab) (composite-symbols--default-lookup lab lang))
+            labels)))
+      (when bad-labels
+        (error "Missing defaults for labels in lang %s: %s"
+               lang (prin1-to-string bad-labels))))
     ;; Merge identifier labels with plain characters together using regexp-opt
     ;; Merge the result with all non-identifier labels with plain characters
     ;; The result is fewer font-lock-keywords
@@ -528,11 +548,7 @@ the different regexps are merged together, so that
     (setq labels (nreverse labels))
     (while labels
       (let* ((lab (car labels))
-             (ass (cdr
-                   (assoc lab
-                          (if (not lang)
-                              composite-symbols-defaults
-                            (assoc lang composite-symbols-defaults-extra)))))
+             (ass (composite-symbols--default-lookup lab lang))
              (is-plain (or (not (consp ass))
                            (and (= 0 (cadr ass))
                                 (string-match-p (car ass) lab)
@@ -552,8 +568,8 @@ the different regexps are merged together, so that
     (if merged-regex
         (append
          `((,merged-regex (0 (composite-symbols--compose-default))))
-         (composite-symbols-from-defaults-noopt merge-not))
-      (composite-symbols-from-defaults-noopt merge-not))))
+         (composite-symbols-from-defaults-noopt merge-not lang))
+      (composite-symbols-from-defaults-noopt merge-not lang))))
 ;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
 ;; (composite-symbols-from-defaults '("!" "!="))
 
@@ -567,14 +583,13 @@ the different regexps are merged together, so that
 NOTE \"!=\" should come before \"!\" for correct fontification.")
 
 (defvar composite-symbols-binary-logical
-  (composite-symbols-from-defaults '("&&" "||") nil :c++)
+  (composite-symbols-from-defaults '("||" "&&"))
   "Standard binary logical operators.")
 
 (defvar composite-symbols-comparison
-  (composite-symbols-append
-   (list
-    (composite-symbols-keyword ">=" 0 (decode-char 'ucs #X2265) ">\\=")
-    (composite-symbols-keyword "<=" 0 (decode-char 'ucs #X2264) "<\\=")))
+  (list
+   (composite-symbols-keyword ">=" 0 (decode-char 'ucs #X2265) ">\\=")
+   (composite-symbols-keyword "<=" 0 (decode-char 'ucs #X2264) "<\\="))
   "Comparison characters.")
 
 (defvar composite-symbols-equals
@@ -742,8 +757,8 @@ Execute these directly to generate greek alphabet character list:
    ;; And "NOT EQUAL TO" is too small and too close to EQUAL TO
    ;; (list (composite-symbols-keyword "!=" 0 #x2260))
    (composite-symbols-from-defaults
-    '("!" "!=" "and" "or" "not" "::" "nullptr" "NULL"))
-   (composite-symbols-from-defaults '("&&" "->" ">>" "<<") nil :c++)
+    '("!" "!=" "||" "and" "or" "not" "::" "nullptr" "NULL"))
+   (composite-symbols-from-defaults '(">=" "<=" "&&" "->" ">>" "<<") nil :c++)
    composite-symbols-comparison
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
@@ -752,13 +767,11 @@ Execute these directly to generate greek alphabet character list:
 Also namespace access, right arrow, nullptr and NULL.")
 
 (defvar composite-symbols-python-rules
-  (composite-symbols-append
-   (composite-symbols-from-defaults '("and" "or" "None"))
-   (composite-symbols-from-defaults '("not") nil :python)
-   composite-symbols-binary-logical
+  (append
+   (composite-symbols-from-defaults '("&&" "||" "and" "or" "None"))
+   (composite-symbols-from-defaults '(">>" "<<" "not") nil :python)
    composite-symbols-comparison
    composite-symbols-member-access
-   composite-symbols-arrows
    ;; composite-symbols-low-asterisk
    )
   "Standard logical, comparison, member-access characters.
@@ -960,13 +973,6 @@ incorrect font heights."
       (insert
        (format "%s%s: %s\n"
                header name (if (integerp d) (format "%c" d) d))))))
-
-(defun composite-symbols-add (mode spec &optional prepend)
-  "Alias for (`font-lock-add-keywords' MODE SPEC t).
-If PREPEND is nil and there are overlaps with mode's own special
-symbols, this will take precendence over the mode's."
-  (font-lock-add-keywords mode spec (not prepend))
-  (add-to-list 'font-lock-extra-managed-props 'composition))
 
 ;; }}}
 ;; {{{ Show unicode mode
