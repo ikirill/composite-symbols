@@ -37,6 +37,8 @@
 ;; - `composite-symbols-greek-mode' shows all non-ambiguous Greek
 ;;   letters that are spelled in English as the corresponding Greek
 ;;   letters.
+;; - For a starting point configuring your own replacement rules, look
+;;   at the definition of `composite-symbols-assign-arrow-mode'.
 ;;
 ;; Notes:
 ;;
@@ -61,12 +63,12 @@
 ;; - This (programming-language-agnostic) package derives from the
 ;;   code that haskell-mode uses to fontify haskell code.
 ;;
-;;; Code:
+;; - font-lock suppresses errors in the fontification process.  The
+;;   package `font-lock-studio' can make debugging easier.
 ;;
-;; - TODO Implement turning this functionally off.
-;;        Restarting Emacs every time is really irritating.
+;;; Code:
 
-(require 'cl)
+(require 'cl-lib)
 
 ;; {{{ Customizations
 
@@ -159,13 +161,13 @@ then MATCH will not be replaced."
     (setq char-spec (decode-char 'ucs char-spec)))
   (if (and (not reject-before) (not reject-after))
       (if (= match-group 0)
-          `(,match (0 (composite-symbols-compose ,char-spec)))
-        `(,match (,match-group (composite-symbols-compose ,char-spec ,match-group))))
+          `(,match (0 (composite-symbols--compose ,char-spec)))
+        `(,match (,match-group (composite-symbols--compose ,char-spec ,match-group))))
     `(,match (,match-group
-              (composite-symbols-compose-check
+              (composite-symbols--compose-check
                ,char-spec ,match-group ,reject-before ,reject-after)))))
 
-(defun composite-symbols-compose (char-spec &optional group)
+(defun composite-symbols--compose (char-spec &optional group)
   "Replace current match group with the character given by CHAR-SPEC.
 
 The match group is GROUP, which defaults to 0.
@@ -179,7 +181,7 @@ in `font-lock-keywords'."
     (compose-region (match-beginning group) (match-end group) char-spec))
   nil)
 
-(defun composite-symbols-compose-check
+(defun composite-symbols--compose-check
     (char-spec &optional match-group reject-before reject-after)
   "Replace current match with given character using `compose-region'.
 See also `composite-symbols-keyword', which uses this.
@@ -233,7 +235,9 @@ broken."
       ;; Here we expect kw to be (STRING (0 HIGHLIGHTER))
       ;; sofar is list of elements (0 HIGHLIGHTER) STRING-1 STRING-2 ...
       (cond
-       ((not (and (stringp (car kw)) (numberp (caadr kw)) (= 0 (caadr kw))))
+       ((not (and (stringp (car kw))
+                (numberp (cl-caadr kw))
+                (= 0 (cl-caadr kw))))
         (push kw no-merge))
        ((setq lookup (assoc (cdr kw) sofar))
         (push (car kw) (cdr lookup)))
@@ -400,7 +404,10 @@ CHAR-SPEC can be an integer or anything else (passed to
 ;; {{{ Making default keywords
 
 (defun composite-symbols-from-defaults-noopt (names)
-  "Return the default keywords for each string in NAMES."
+  "Return the default keywords for each string in NAMES.
+
+Same as `composite-symbols-from-defaults', but with no attempt at
+optimizations."
   (mapcar
    (lambda (n)
      (let ((d (assoc n composite-symbols-defaults)))
@@ -433,7 +440,7 @@ the different regexps are merged together, so that
   (setq word-separators (or word-separators 'symbols))
   (let (merge-opt merge-rest merge-not merged-regex bad-labels)
     ;; Check for bad labels that are missing from defaults
-    (setq bad-labels (remove-if
+    (setq bad-labels (cl-remove-if
                       (lambda (lab) (assoc lab composite-symbols-defaults))
                       labels))
     (when bad-labels
@@ -461,19 +468,19 @@ the different regexps are merged together, so that
                   (when merge-rest
                     (concat (when merge-opt "\\|") (mapconcat 'identity merge-rest "\\|")))))
     (append
-     `((,merged-regex (0 (composite-symbols-compose-default))))
+     `((,merged-regex (0 (composite-symbols--compose-default))))
      (composite-symbols-from-defaults-noopt merge-not))))
 ;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
 ;; (composite-symbols-from-defaults '("!" "!="))
 
-(defun composite-symbols-compose-default ()
+(defun composite-symbols--compose-default ()
   "Compose a symbol based on its default value."
   (let ((start (match-beginning 0)) (end (match-end 0)))
     (if (memq (get-text-property start 'face) composite-symbols-ignored-faces)
         (remove-text-properties start end '(composition))
       (let* ((lab (match-string 0))
              (ass (cdr (assoc lab composite-symbols-defaults))))
-        (compose-region start end (if (consp ass) (caddr ass) ass)))))
+        (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
   nil)
 
 ;; }}}
@@ -539,14 +546,16 @@ appears a little too high.")
 
 (defvar composite-symbols-assign-arrow
   (list (composite-symbols-keyword
-         "=" 0 #x2190 "[^[:space:][:cntrl:]]\\=" "\\=[^[:space:][:cntrl:]]"))
+         "="
+         0
+         ;; #x2190 ; leftwards arrow
+         #x27f5 ; long leftwards arrow
+         ;; Reject equals-sign as a possible assignment operator when
+         ;; it has anything non-space, non-control to the left or
+         ;; right of it.
+         "[^[:space:][:cntrl:]]\\="
+         "\\=[^[:space:][:cntrl:]]"))
   "Replace assignment operator with left arrow, as in some mathematical notations.")
-
-(defun composite-symbols-replace-assign-with-arrow ()
-  "Tell font-lock to show assignment \"=\" using a left arrow."
-  (font-lock-add-keywords nil
-    (composite-symbols-append
-     composite-symbols-assign-arrow composite-symbols-equals)))
 
 ;; }}}
 ;; {{{ Greek alphabet characters
@@ -620,19 +629,6 @@ otherwise it will apply to all future buffers."
    ;; displayed as greek characters.
    'words)
   "Greek alphabet, plus four odd Russian letters.")
-
-;; (defun composite-symbols-add-greek (&optional everywhere)
-;;   "Display all identifiers that are greek letters as those greek letters.
-;; If EVERYWHERE is nil, this applies only to the current buffer,
-;; otherwise it will apply to all future buffers."
-;;   (interactive "P")
-;;   (let ((c (get major-mode 'mode-class)))
-;;     (when (or (not everywhere) (and c (not (eq c 'special))))
-;;       (if everywhere
-;;           (add-hook 'font-lock-mode-hook 'composite-symbols-add-greek)
-;;         (font-lock-add-keywords nil composite-symbols-greek-list t)
-;;         (add-to-list 'font-lock-extra-managed-props 'composition))))
-;;   nil)
 
 ;; }}}
 ;; {{{ Alphabet generation function
@@ -846,7 +842,8 @@ Notes:
         kw)
     (when (and user-kw (listp user-kw))
       (setq user-kw (composite-symbols--compile-user user-kw))
-      (message "User keywords: %s" (prin1-to-string user-kw)))
+      (when composite-symbols-mode
+        (message "User keywords: %s" (prin1-to-string user-kw))))
     (setq kw (or user-kw default-kw))
     (when (symbolp kw) (setq kw (symbol-value kw)))
     (cond
@@ -859,6 +856,14 @@ Notes:
       (composite-symbols--enable kw))
      (t
       (composite-symbols--disable kw)))))
+
+;;;###autoload
+(define-minor-mode composite-symbols-assign-arrow-mode
+  "Replace the assignment operators in C++ with left arrows."
+  :group 'composite-symbols
+  (if composite-symbols-assign-arrow-mode
+      (composite-symbols--enable composite-symbols-assign-arrow)
+    (composite-symbols--disable composite-symbols-assign-arrow)))
 
 ;;;###autoload
 (define-minor-mode composite-symbols-greek-mode
