@@ -145,6 +145,15 @@ hex code such as #x2260."
 ;; }}}
 ;; {{{ Creating keywords for font-lock-keywords
 
+(defun composite-symbols-keyword-with-spaces (match match-group char-spec)
+  "Make a keyword as `composite-symbols-keyword',
+specifying that a match must be surrounded with spaces or control
+characters."
+  (composite-symbols-keyword
+   match match-group char-spec
+   (rx (not (any control space)) point)
+   (rx point (not (any control space)))))
+
 (defun composite-symbols-keyword (match match-group char-spec &optional reject-before reject-after)
   "Return a keyword specification suitable for `font-lock-add-keywords'.
 
@@ -589,6 +598,7 @@ because when asterisk is used for multiplication it sometimes
 appears a little too high.")
 
 (defvar composite-symbols-assign-arrow
+  ;; (list (composite-symbols-keyword-with-spaces "=" 0 #x27f5))
   (list (composite-symbols-keyword
          "="
          0
@@ -737,8 +747,7 @@ Execute these directly to generate greek alphabet character list:
    composite-symbols-binary-logical
    ;; composite-symbols-binary-logical
    ;; move constructors "A(A&&)" make this a special case
-   (list (composite-symbols-keyword
-          "&&" 0 #x2227 "[^[:space:][:cntrl:]]\\=" "\\=[^[:space:][:cntrl:]]"))
+   (list (composite-symbols-keyword-with-spaces "&&" 0 #x2227))
    composite-symbols-comparison
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
