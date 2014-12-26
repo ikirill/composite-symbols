@@ -266,15 +266,18 @@ end of the current match."
 
 (defvar composite-symbols-defaults)
 
-(defun composite-symbols--compose-default ()
-  "Compose a symbol based on its default value."
+(defun composite-symbols--compose-default (&optional lang)
+  "Compose a symbol based on its default value.
+
+It is assumed the match-group is 0. If supplied, LANG is used to
+look up the default replacement symbol."
   (let* ((start (match-beginning 0))
          (end (match-end 0)))
     (when (and (not (composite-symbols--invalid-face start))
                (or composite-symbols-ignore-indentation
                    (not (composite-symbols--breaks-indentation start end))))
       (let* ((lab (match-string 0))
-             (ass (cdr (assoc lab composite-symbols-defaults))))
+             (ass (composite-symbols--default-lookup lab lang)))
         (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
   nil)
 
@@ -322,23 +325,17 @@ broken."
 ;; {{{ Default string to character mappings
 
 (defvar composite-symbols-defaults
-  ;; composite-symbols-from-defaults assumes that those strings that
-  ;; match group 0 are matched by their regex, and their regex matches
-  ;; nothing else. Otherwise they might be done incorrectly.
-  '(;; ("!" . #xac)
-    ;; It is important for "!" not to clash with "!=", e.g. in c++
-    ;; ("!" . ("\\(!\\)[^=]" 1 #xac))
-    ("!" . ("!" 0 #xac nil "\\=="))
+  '(("!" . #xac) ; This is not suitable for C++, for example
     ("~=" . #xac)
     ("!=" . #x2262)
-    ("/=" . #X2262)
-    ("==" . #X2261)
+    ("/=" . #x2262)
+    ("==" . #x2261)
     ("&&" . #x2227)
     ("||" . #x2228)
-    ("not" . #X00AC)
-    ("and" . #X2227)
+    ("not" . #xac)
+    ("and" . #x2227)
     ;; FIXME this sometimes highlights word constituents in python-mode, I don't know why.
-    ("or" . #X2228)
+    ("or" . #x2228)
 
     ;; This only works in modes that define the syntax of ">=" as
     ;; symbol (like lisp, haskell), not punctutation (like c++).
@@ -356,7 +353,7 @@ broken."
     ("nullptr" . #x2205)
     ("null" . #x2205)
     ("NULL" . #x2205)
-    ("None" . #X2205)
+    ("None" . #x2205)
     ("undefined" . #x27c2)
 
     ;; julia
@@ -370,9 +367,9 @@ broken."
 
     ;; haskell
     (".." . ("\\.\\." 0 #x2025))
-    ("-<" . ("\\_<-<\\_>" 0 #X2919))
-    (">-" . ("\\_<>-\\_>" 0 #X291A))
-    ("<*>" . ("<\\*>" 0 #X229B))
+    ("-<" . ("\\_<-<\\_>" 0 #x2919))
+    (">-" . ("\\_<>-\\_>" 0 #x291a))
+    ("<*>" . ("<\\*>" 0 #x229b))
     (">>" . ("\\_<>>\\_>" 0 #X226B))
     ("<<" . ("\\_<<<\\_>" 0 #X226A))
     (">>=" . ("\\_<>>=\\_>" 0 #X291C))
@@ -466,6 +463,7 @@ CHAR-SPEC can be an integer or anything else (passed to
 
 (defvar composite-symbols-defaults-extra
   `((:c++
+     ("!" "!" 0 #xac nil "\\==")
      ;; Handle move constructors
      ("&&" "&&" 0 #x2227 ,(rx (any alnum ?_) point))
      ;; handle "while (x --> 0);"
@@ -567,7 +565,7 @@ the different regexps are merged together, so that
                               (mapconcat 'identity merge-rest "\\|"))))))
     (if merged-regex
         (append
-         `((,merged-regex (0 (composite-symbols--compose-default))))
+         `((,merged-regex (0 (composite-symbols--compose-default ,lang))))
          (composite-symbols-from-defaults-noopt merge-not lang))
       (composite-symbols-from-defaults-noopt merge-not lang))))
 ;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
@@ -757,9 +755,8 @@ Execute these directly to generate greek alphabet character list:
    ;; And "NOT EQUAL TO" is too small and too close to EQUAL TO
    ;; (list (composite-symbols-keyword "!=" 0 #x2260))
    (composite-symbols-from-defaults
-    '("!" "!=" "||" "and" "or" "not" "::" "nullptr" "NULL"))
-   (composite-symbols-from-defaults '(">=" "<=" "&&" "->" ">>" "<<") nil :c++)
-   composite-symbols-comparison
+    '("!=" "||" "and" "or" "not" "::" "nullptr" "NULL"))
+   (composite-symbols-from-defaults '("!"  ">=" "<=" "&&" "->" ">>" "<<") nil :c++)
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
    )
