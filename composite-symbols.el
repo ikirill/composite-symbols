@@ -308,7 +308,7 @@ broken."
   '(;; ("!" . #xac)
     ;; It is important for "!" not to clash with "!=", e.g. in c++
     ;; ("!" . ("\\(!\\)[^=]" 1 #xac))
-    ("!" . ("!" 0 #xac nil "\\=[^=]"))
+    ("!" . ("!" 0 #xac nil "\\=="))
     ("~=" . #xac)
     ("!=" . #x2262)
     ("/=" . #X2262)
