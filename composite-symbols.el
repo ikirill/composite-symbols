@@ -345,6 +345,7 @@ broken."
     ("Int" . #x2124)
     ("Float64" . #x211d)
     ("Complex" . #x2102)
+    ("function" . #x3bb)
     ("..." . ("\\.\\.\\." 0 #x2026))
 
     ;; haskell
