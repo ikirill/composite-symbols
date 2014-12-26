@@ -38,7 +38,6 @@
 ;;   letters that are spelled in English as the corresponding Greek
 ;;   letters.
 ;;
-;;
 ;; Notes:
 ;;
 ;; - There is a fair amount of variability in what you might prefer to
@@ -812,6 +811,7 @@ KW-LIST is passed to `font-lock-remove-keywords'."
       (font-lock-flush)
     (with-no-warnings (font-lock-fontify-buffer))))
 
+;;;###autoload
 (define-minor-mode composite-symbols-mode
   "This mode replaces some special symbols with corresponding unicode
 characters. For example, it will replace \"<=\" with <LESS-THAN> '<',
@@ -860,6 +860,7 @@ Notes:
      (t
       (composite-symbols--disable kw)))))
 
+;;;###autoload
 (define-minor-mode composite-symbols-greek-mode
   "Similar to `composite-symbols-mode', this mode displays all
 words that are spelled as greek letters with the corresponding
