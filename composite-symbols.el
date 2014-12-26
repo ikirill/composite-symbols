@@ -462,6 +462,20 @@ CHAR-SPEC can be an integer or anything else (passed to
 `compose-region' directly).")
 ;; (makunbound 'composite-symbols-defaults)
 
+(defvar composite-symbols-defaults-extra
+  '((:c++
+     ;; Handle move constructors
+     ("&&" "&&" 0 #x2227 (rx (any alnum ?_) (* (any space)) point))
+     ;; handle "while (x --> 0);"
+     ("->" "->" 0 #x2192 "-\\=" "\\=>")
+     ;; Do not require <> to have symbol syntax
+     ;; Handle template arguments like S<T<U>>
+     (">>" ">>" 0 #x226b "[[:alnum:]_] *\\=")
+     ("<<" "<<" 0 #x226a))
+    (:python
+     ("not" "\\_<not\\_>" 0 #xac "\\_<is *\\=")))
+  "List of common mode-specific defaults.")
+
 ;; }}}
 ;; {{{ Making default keywords
 
@@ -490,7 +504,7 @@ optimizations."
          (error "Invalid default character: %s" d)))))
    names))
 
-(defun composite-symbols-from-defaults (labels &optional word-separators)
+(defun composite-symbols-from-defaults (labels &optional word-separators lang)
   "Return the default keywords for each string in LABELS.
 
 Keywords for multiple labels will be merged if possible, as
@@ -514,7 +528,11 @@ the different regexps are merged together, so that
     (setq labels (nreverse labels))
     (while labels
       (let* ((lab (car labels))
-             (ass (cdr (assoc lab composite-symbols-defaults)))
+             (ass (cdr
+                   (assoc lab
+                          (if (not lang)
+                              composite-symbols-defaults
+                            (assoc lang composite-symbols-defaults-extra)))))
              (is-plain (or (not (consp ass))
                            (and (= 0 (cadr ass))
                                 (string-match-p (car ass) lab)
@@ -525,13 +543,17 @@ the different regexps are merged together, so that
                (push lab merge-opt))
               (t (push lab merge-rest))))
       (setq labels (cdr labels)))
-    (setq merged-regex
-          (concat (when merge-opt (regexp-opt merge-opt word-separators))
-                  (when merge-rest
-                    (concat (when merge-opt "\\|") (mapconcat 'identity merge-rest "\\|")))))
-    (append
-     `((,merged-regex (0 (composite-symbols--compose-default))))
-     (composite-symbols-from-defaults-noopt merge-not))))
+    (when (or merge-opt merge-rest)
+      (setq merged-regex
+            (concat (when merge-opt (regexp-opt merge-opt word-separators))
+                    (when merge-rest
+                      (concat (when merge-opt "\\|")
+                              (mapconcat 'identity merge-rest "\\|"))))))
+    (if merged-regex
+        (append
+         `((,merged-regex (0 (composite-symbols--compose-default))))
+         (composite-symbols-from-defaults-noopt merge-not))
+      (composite-symbols-from-defaults-noopt merge-not))))
 ;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
 ;; (composite-symbols-from-defaults '("!" "!="))
 
@@ -545,17 +567,7 @@ the different regexps are merged together, so that
 NOTE \"!=\" should come before \"!\" for correct fontification.")
 
 (defvar composite-symbols-binary-logical
-  (list
-   ;; With ">>" must use a hack to not replace brackets around
-   ;; C++ template arguments; requires a space to the left of ">>"
-   (composite-symbols-keyword
-    ">>" 0 #X226B
-    (rx (not (any control space)) point)
-    (rx point (not (any control space))))
-   (composite-symbols-keyword
-    "<<" 0 #X226A
-    (rx (not (any control space)) point)
-    (rx point (not (any control space)))))
+  (composite-symbols-from-defaults '("&&" "||") nil :c++)
   "Standard binary logical operators.")
 
 (defvar composite-symbols-comparison
@@ -618,25 +630,6 @@ appears a little too high.")
 
 ;; }}}
 ;; {{{ Greek alphabet characters
-
-(defvar composite-symbols-lambda-list
-  (composite-symbols-from-defaults '("lambda"))
-  "The character for lowercase lambda.
-
-This is different from the other keyword for greek lambda because
-this is specifically for the symbol lambda, not a word.")
-
-(defun composite-symbols-add-lambda (&optional everywhere)
-  "Display all identifiers that are \"l a m b d a\" as λ.
-If EVERYWHERE is nil, this applies only to the current buffer,
-otherwise it will apply to all future buffers."
-  (let ((c (get major-mode 'mode-class)))
-    (when (or (not everywhere) (and c (not (eq c 'special))))
-      (if everywhere
-          (add-hook 'font-lock-mode-hook 'composite-symbols-add-lambda)
-        (font-lock-add-keywords nil composite-symbols-lambda-list t)
-        (add-to-list 'font-lock-extra-managed-props 'composition))))
-  nil)
 
 (defvar composite-symbols-greek-rules
   (composite-symbols-from-defaults
@@ -748,37 +741,32 @@ Execute these directly to generate greek alphabet character list:
    ;; (composite-symbols-from-defaults '("=="))
    ;; And "NOT EQUAL TO" is too small and too close to EQUAL TO
    ;; (list (composite-symbols-keyword "!=" 0 #x2260))
-   (composite-symbols-from-defaults '("!" "!=" "and" "or" "not"))
-   composite-symbols-binary-logical
-
-   (list
-    ;; Require spaces because of move constructors
-    (composite-symbols-keyword "&&" 0 #x2227 "[_[:alnum:]] *\\=")
-    ;; handle "while (x --> 0);"
-    (composite-symbols-keyword "->" 0 #x2192 "-\\="))
+   (composite-symbols-from-defaults
+    '("!" "!=" "and" "or" "not" "::" "nullptr" "NULL"))
+   (composite-symbols-from-defaults '("&&" "->" ">>" "<<") nil :c++)
    composite-symbols-comparison
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
-   (composite-symbols-from-defaults '("::" "nullptr" "NULL")))
+   )
   "Standard logical, comparison, member-access characters.
 Also namespace access, right arrow, nullptr and NULL.")
 
 (defvar composite-symbols-python-rules
   (composite-symbols-append
-   composite-symbols-logical
+   (composite-symbols-from-defaults '("and" "or" "None"))
+   (composite-symbols-from-defaults '("not") nil :python)
    composite-symbols-binary-logical
    composite-symbols-comparison
    composite-symbols-member-access
    composite-symbols-arrows
    ;; composite-symbols-low-asterisk
-   (composite-symbols-from-defaults '("None")))
+   )
   "Standard logical, comparison, member-access characters.
 None is shown as the empty set, but it could also be shown as ⟂.")
 
 (defvar composite-symbols-lisp-rules
-  (composite-symbols-append
-   (composite-symbols-from-defaults
-    '("/=" "<=" ">=" "and" "not" "or" "lambda")))
+  (composite-symbols-from-defaults
+   '("/=" "<=" ">=" "and" "not" "or" "lambda"))
   "Standard symbols for lisp.")
 
 (defvar composite-symbols-haskell-rules
