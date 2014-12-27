@@ -252,15 +252,19 @@ end of the current match."
                      (save-match-data
                        (save-excursion
                          (goto-char start)
-                         (re-search-backward reject-before
-                                             (line-beginning-position) t)))))
+                         (if (functionp reject-before)
+                             (funcall reject-before)
+                           (re-search-backward reject-before
+                                               (line-beginning-position) t))))))
                (not
                 (and reject-after
                      (save-match-data
                        (save-excursion
                          (goto-char end)
-                         (re-search-forward reject-after
-                                            (line-end-position) t))))))
+                         (if (functionp reject-after)
+                             (funcall reject-after)
+                           (re-search-forward reject-after
+                                              (line-end-position) t)))))))
       (compose-region start end char-spec))
     nil))
 
@@ -382,7 +386,12 @@ broken."
     (:c++
      ("!" "!" 0 #xac nil "\\==")
      ;; Handle move constructors
-     ("&&" "&&" 0 #x2227 ,(rx (any alnum ?_) point))
+     ;; ("&&" "&&" 0 #x2227 ,(rx (any alnum ?_) point)) ; not on T && x
+     ("&&" "&&" 0 #x2227
+      ,(lambda ()
+         (skip-syntax-backward "-")
+         (unless (bolp)
+           (eq (get-char-property (1- (point)) 'face) 'font-lock-type-face))))
      ;; handle "while (x --> 0);"
      ("->" "->" 0 #x2192 "-\\=" "\\=>")
      ;; Do not require <> to have symbol syntax

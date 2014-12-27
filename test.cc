@@ -1,7 +1,7 @@
 #include "../somefile.h"
 
 int main(const Type&& x, // no change
-  const Type && x) // change
+  const Type && x) // no change
 {
   int x = NULL + 1 // no change with ignore-indentation set to nil
                + 2;
