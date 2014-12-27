@@ -1,7 +1,7 @@
 
 def f(x):
   x = None and False or not False
-  x = x >> 1
+  x = x >> 1 and x >= 1 and x <= 1
   x = x << 2
   if x is not None: # no change
     if x is (not None):
@@ -9,6 +9,7 @@ def f(x):
         return True
   andd = lambda x: x
   x = x or ord(x) and andd(x) # ord and andd should not change
+  # All of these are correctly greek letters
   psi = phi = psi_phi_1 = 1
   print((psi, phi, psi_phi_1))
 

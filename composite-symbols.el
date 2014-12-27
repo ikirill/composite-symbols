@@ -276,7 +276,18 @@ look up the default replacement symbol."
     ;; (when (eq lang :greek) (message "Matched %s" (match-string 0)))
     (when (and (not (composite-symbols--invalid-face start))
                (or composite-symbols-ignore-indentation
-                   (not (composite-symbols--breaks-indentation start end))))
+                   (not (composite-symbols--breaks-indentation start end)))
+               ;; FIXME There is a bug with greek-mode where in C++
+               ;; and Haskell the word boundary regexes \\<, \\> don't
+               ;; seem to work as expected. This does a similar thing.
+               (not (and (eq lang :greek)
+                         (or (save-excursion
+                               (goto-char end)
+                               (looking-at-p "[[:alpha:]]"))
+                             (and (> start (point-min))
+                                  (save-excursion
+                                    (goto-char (1- start))
+                                    (looking-at-p "[[:alpha:]]")))))))
       (let* ((lab (match-string 0))
              (ass (composite-symbols--default-lookup lab lang)))
         (compose-region start end (if (consp ass) (cl-caddr ass) ass)))))
@@ -320,7 +331,6 @@ broken."
                    (cons (cadr elt) (car elt))
                  (cons (mapconcat 'identity (cdr elt) "\\|") (car elt))))
              sofar))))
-;; (composite-symbols-append composite-symbols-logical composite-symbols-comparison)
 
 ;; }}}
 ;; {{{ Default string to character mappings
@@ -523,11 +533,13 @@ optimizations."
          (error "Invalid default character: %s" d)))))
    names))
 
-(defun composite-symbols-from-defaults (labels &optional word-separators lang)
+(defun composite-symbols-from-defaults (labels &optional lang word-separators)
   "Return the default keywords for each string in LABELS.
 
 Keywords for multiple labels will be merged if possible, as
-WORD-SEPARATORS, which defaults to 'symbols (see `regexp-opt').
+WORD-SEPARATORS, which defaults to 'symbols (see
+`regexp-opt'). It can also be 'no-parens if no parens should be
+asked from `regexp-opt'.
 
 If LANG is non-nil, `composite-symbols-defaults-extra' will also
 be examined.
@@ -536,6 +548,7 @@ This is the same as `composite-symbols-from-defaults-noopt', but
 the different regexps are merged together, so that
 `font-lock-keywords' will be shorter."
   (setq word-separators (or word-separators 'symbols))
+  (when (eq word-separators 'no-parens) (setq word-separators nil))
   (let (merge-opt merge-rest merge-not merged-regex)
     ;; Check for bad labels that are missing from defaults
     (let ((bad-labels
@@ -574,43 +587,9 @@ the different regexps are merged together, so that
          `((,merged-regex (0 (composite-symbols--compose-default ,lang) prepend)))
          (composite-symbols-from-defaults-noopt merge-not lang))
       (composite-symbols-from-defaults-noopt merge-not lang))))
-;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
-;; (composite-symbols-from-defaults '("!" "!="))
 
 ;; }}}
 ;; {{{ Default sets of characters
-
-(defvar composite-symbols-logical
-  (composite-symbols-from-defaults '("!=" "!" "&&" "||" "and" "or" "not"))
-  "Standard logical characters, including their text versions.
-
-NOTE \"!=\" should come before \"!\" for correct fontification.")
-
-(defvar composite-symbols-binary-logical
-  (composite-symbols-from-defaults '("||" "&&"))
-  "Standard binary logical operators.")
-
-(defvar composite-symbols-comparison
-  (list
-   (composite-symbols-keyword ">=" 0 (decode-char 'ucs #X2265) ">\\=")
-   (composite-symbols-keyword "<=" 0 (decode-char 'ucs #X2264) "<\\="))
-  "Comparison characters.")
-
-(defvar composite-symbols-equals
-  (composite-symbols-from-defaults '("=="))
-  "Equals as the equivls character.
-
-This is separate because sometimes the equivalence sign is too
-hard to distinguish from equals sign, depending on font settings
-and screen resolution.
-
-In languages where the ?= character can only appear in a limited
-number of places, restricted by language grammar, there is much
-less confusion compared to some language like C++.")
-
-(defvar composite-symbols-not-equals
-  (composite-symbols-from-defaults '("/="))
-  "Not equals with a slash.")
 
 (defvar composite-symbols-member-access
   (list
@@ -618,14 +597,6 @@ less confusion compared to some language like C++.")
                    "[^<]\\<[+-]?[0-9]+\\=" "\\=\\([0-9]\\|h.?.?>\\)"))
   "Use ?∙ (#x2219) for member access.
 This includes checks to make sure the dot is not part of a number.")
-
-(defvar composite-symbols-arrows
-  (composite-symbols-from-defaults '("->" "<-"))
-  "Simple arrow characters.")
-
-(defvar composite-symbols-tilde
-  (composite-symbols-from-defaults '("~"))
-  "NOTE: in some fonts, tilde-operator is less clear than plain tilde.")
 
 (defvar composite-symbols-low-asterisk
   `(,(composite-symbols-keyword "\\*" 0 #x204e))
@@ -696,10 +667,9 @@ appears a little too high.")
      "RussianZH"
      "RussianE"
      )
-   ;; This means that even words that are parts of bigger symbols get
-   ;; displayed as greek characters.
-   'words
-   :greek)
+   :greek
+   ;; FIXME There is a bug here, see composite-symbols--compose-default
+   'no-parens)
   "Greek alphabet, plus four odd Russian letters.")
 
 ;; }}}
@@ -763,7 +733,8 @@ Execute these directly to generate greek alphabet character list:
    ;; (list (composite-symbols-keyword "!=" 0 #x2260))
    (composite-symbols-from-defaults
     '("!=" "||" "and" "or" "not" "::" "nullptr" "NULL"))
-   (composite-symbols-from-defaults '("!"  ">=" "<=" "&&" "->" ">>" "<<") nil :c++)
+   (composite-symbols-from-defaults
+    '("!"  ">=" "<=" "&&" "->" ">>" "<<") :c++)
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
    )
@@ -772,9 +743,10 @@ Also namespace access, right arrow, nullptr and NULL.")
 
 (defvar composite-symbols-python-rules
   (append
-   (composite-symbols-from-defaults '("&&" "||" "and" "or" "None" "lambda"))
-   (composite-symbols-from-defaults '(">>" "<<" "not") nil :python)
-   composite-symbols-comparison
+   (composite-symbols-from-defaults
+    '("&&" "||" "<=" ">=" "and" "or" "None" "lambda"))
+   (composite-symbols-from-defaults
+    '(">>" "<<" "not") :python)
    composite-symbols-member-access
    ;; composite-symbols-low-asterisk
    )
@@ -792,7 +764,7 @@ None is shown as the empty set, but it could also be shown as ⟂.")
      ".." ; ranges in lists
      "elem" "notElem" "union" "intersect" "msum"
      "Integer" "Ratio Integer" "Double" "Bool")
-   nil :haskell)
+   :haskell)
   "Lots of characters for `haskell-mode' of varying craziness.
 
 See also the package
@@ -808,7 +780,7 @@ take precedence.")
     '("..." "::" "<:" "nothing" "Float64" "Int" "Complex" "Bool"))
    (composite-symbols-from-defaults
     '("function")
-    nil :julia))
+    :julia))
   "Special symbols for julia.")
 
 (defvar composite-symbols-default-mode-alist

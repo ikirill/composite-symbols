@@ -5,6 +5,8 @@ main :: Int -> Integer -> Ratio Integer -> Double -> Bool -> IO ()
 main = elem . notElem . union . intersect . msum
 main = [1..] ++ [1..2] ++ [1,2..3] -< a >- b <*> c >> d << e
 main = \x -> f >>= g =<< h >>> i <<< j *** k ++ l +++ m ||| n
+main = 1 >= 2 && 2 <= 1 || 1 == 2 || 1 /= 2
+-- FIXME All of these should be greek letters
 alpha = 1
 beta = 2
 alpha_beta = alpha_beta

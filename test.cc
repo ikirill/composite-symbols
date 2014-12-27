@@ -11,16 +11,20 @@ int main(const Type&& x, // no change
   x ||= 1;
   while (x --> 0); // no change
   if (!x && x != 1 || x == 1);
+  x >= 1;
+  x <= 1;
   x >>= 1;
   x <<= 1;
   cout << x << y;
   cin >> x >> y;
   return 0;
 
+  // All of these should be greek letters
   alpha = 1;
   alpha_beta = 1;
   phi = psi = Omega = omega = omega_1; // all should change
   alphabeta = 1; // no change
+  alpha1 = 1; // should change
 }
 
 // Local Variables:
