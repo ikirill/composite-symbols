@@ -22,8 +22,8 @@ be modified).
 
 ## Screenshot
 
-This is an artificial testing C++ file. When symbols change
-their lengths, indentation is, by default, not broken.
+These are artificial testing C++/Python/Haskell files. When symbols
+change their lengths, indentation is, by default, not broken.
 
 ![Screenshot](screenshot.png?raw=true "Screenshot")
 
