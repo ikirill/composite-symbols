@@ -273,6 +273,7 @@ It is assumed the match-group is 0. If supplied, LANG is used to
 look up the default replacement symbol."
   (let* ((start (match-beginning 0))
          (end (match-end 0)))
+    ;; (when (eq lang :greek) (message "Matched %s" (match-string 0)))
     (when (and (not (composite-symbols--invalid-face start))
                (or composite-symbols-ignore-indentation
                    (not (composite-symbols--breaks-indentation start end))))
@@ -325,144 +326,50 @@ broken."
 ;; {{{ Default string to character mappings
 
 (defvar composite-symbols-defaults
-  '(("!" . #xac) ; This is not suitable for C++, for example
-    ("~=" . #xac)
-    ("!=" . #x2262)
-    ("/=" . #x2262)
-    ("==" . #x2261)
-    ("&&" . #x2227)
-    ("||" . #x2228)
-    ("not" . #xac)
-    ("and" . #x2227)
-    ;; FIXME this sometimes highlights word constituents in python-mode, I don't know why.
-    ("or" . #x2228)
+  ;; See the docstring below
+  ;; '((nil ...) (:c++ ...) (:python ...) ...)
+  `((nil                   ; Map strings to integer character codes
+     ("!" . #xac)          ; This is not suitable for C++, for example
+     ("~=" . #xac)
+     ("!=" . #x2262)
+     ("/=" . #x2262)
+     ("==" . #x2261)
+     ("&&" . #x2227)
+     ("||" . #x2228)
+     (">=" . #x2265)
+     ("<=" . #x2264)
+     ("not" . #xac)
+     ("and" . #x2227)
+     ("or" . #x2228)
 
-    ;; This only works in modes that define the syntax of ">=" as
-    ;; symbol (like lisp, haskell), not punctutation (like c++).
-    (">=" . ("\\_<>=\\_>" 0 #x2265))
-    ("<=" . ("\\_<<=\\_>" 0 #x2264))
+     ("->" . #x2192)
+     ("<-" . #x2190)
+     ("::" . #x2237)
+     ("~" . #x223c)
 
-    ("->" . #x2192)
-    ("<-" . #x2190)
+     ("nullptr" . #x2205)
+     ("null" . #x2205)
+     ("NULL" . #x2205)
+     ("None" . #x2205)
+     ("undefined" . #x27c2)
+     ("nothing" . #x2205)
+     ("Int" . #x2124)
+     ("Float64" . #x211d)
+     ("Complex" . #x2102)
+     ("lambda" . #x3bb)
+     ("Bool" . #X1D539)
 
-    ("~" . #x223c)
+     ;; Don't use both as they are ambiguous
+     (".." . ("\\.\\." 0 #x2025))
+     ("..." . ("\\.\\.\\." 0 #x2026))
 
-    ("::" . #x2237)
-    ("->" . #x2192)
+     ("<:" . #x22d6))
 
-    ("nullptr" . #x2205)
-    ("null" . #x2205)
-    ("NULL" . #x2205)
-    ("None" . #x2205)
-    ("undefined" . #x27c2)
+    (:symbols                ; special strings that have symbol syntax
+     (">=" . ("\\_<>=\\_>" 0 #x2265))
+     ("<=" . ("\\_<<=\\_>" 0 #x2264)))
 
-    ;; julia
-    ("nothing" . #x2205)
-    ("<:" . #x22d6)
-    ("Int" . #x2124)
-    ("Float64" . #x211d)
-    ("Complex" . #x2102)
-    ("function" . ("function" 0 #x3bb "\n[[:space:]]*\\="))
-    ("..." . ("\\.\\.\\." 0 #x2026))
-
-    ;; haskell
-    (".." . ("\\.\\." 0 #x2025))
-    ("-<" . ("\\_<-<\\_>" 0 #x2919))
-    (">-" . ("\\_<>-\\_>" 0 #x291a))
-    ("<*>" . ("<\\*>" 0 #x229b))
-    (">>" . ("\\_<>>\\_>" 0 #X226B))
-    ("<<" . ("\\_<<<\\_>" 0 #X226A))
-    (">>=" . ("\\_<>>=\\_>" 0 #X291C))
-    ("=<<" . ("\\_<=<<\\_>" 0 #X291B))
-    (">>>" . (">>>" 0 #X22D9))
-    ("<<<" . ("<<<" 0 #X22D8))
-    ("***" . ("\\*\\*\\*" 0 #X2042))
-    ("++" . ("\\_<\\+\\+\\_>" 0 #X29FA))
-    ("+++" . ("\\_<\\+\\+\\+\\_>" 0 #X29FB))
-    ("|||" . #X2AF4)
-    ("elem" . #X2208)
-    ("notElem" . #X2209)
-    ("union" . #X222A)
-    ("intersect" . #X2229)
-    ("msum" . #X2295)
-    ("Integer" . #X2124)
-    ("Ratio Integer" . #X211A)
-    ("Double" . #X211D)
-    ("Bool" . #X1D539)
-
-    ;; NOTE Gamma and GAMMA would be indistinguishable, so only Gamma
-    ;; is supported. Same for all other capital letters.  Capital
-    ;; letters such as Alpha that already appear in English do not get
-    ;; defaults.
-    ("Gamma" . #x393)
-    ("Delta" . #x394)
-    ("Theta" . #x398)
-    ("Lambda" . #x39b)
-    ("Xi" . #x39e)
-    ("Pi" . #x3a0)
-    ("Sigma" . #x3a3)
-    ("Upsilon" . #x3d2)
-    ("Phi" . #x3a6)
-    ("Psi" . #x3a8)
-    ("Omega" . #x3a9)
-    ("alpha" . #x3b1)
-    ("beta" . #x3b2)
-    ("gamma" . #x3b3)
-    ("delta" . #x3b4)
-    ("epsilon" . #x3b5)
-    ("zeta" . #x3b6)
-    ("eta" . #x3b7)
-    ("theta" . #x3b8)
-    ("vartheta" . #x3d1)
-    ("kappa" . #x3ba)
-    ("lambda" . #x3bb)
-    ("mu" . #x3bc)
-    ("nu" . #x3bd)
-    ("xi" . #x3be)
-    ("pi" . #x3c0)
-    ("varpi" . #x3d6)
-    ("rho" . #x3c1)
-    ("varrho" . #x3f1)
-    ("varsigma" . #x3c2)
-    ("sigma" . #x3c3)
-    ("tau" . #x3c4)
-    ("upsilon" . #x3c5)
-    ("phi" . #x3d5)
-    ("varphi" . #x3c6)
-    ("chi" . #x3c7)
-    ("psi" . #x3c8)
-    ("omega" . #x3c9)
-
-    ;; NOTE Aren't these backward English letters properly called Cyrillic?
-    ;; NOTE Also RussianR will confuse those who expect it to be RussianIA.
-    ("RussianR" . #x42f)
-    ("RussianZ" . #x417)
-    ("RussianZH" . #x416)
-    ("RussianE" . #x42d)
-
-    )
-  "An alist that maps regexes to their default characters.
-In some modes, these maps would be insufficient, so something
-cleverer is needed for font-lock-keywords.
-
-Each element is (STRING . STRING-DEFAULT).
-
-If STRING is a valid C++ identifier, the regex matching it will
-be \"\\_<STRING\\_>\" instead of \"STRING\".
-
-STRING-DEFAULT can be:
-
- - CHAR-SPEC
-   Map STRING to a character specification.
-
- - (REGEX SUBGROUP CHAR-SPEC)
-   maps the subgroup of the regex to the character specification.
-
-CHAR-SPEC can be an integer or anything else (passed to
-`compose-region' directly).")
-
-(defvar composite-symbols-defaults-extra
-  `((:c++
+    (:c++
      ("!" "!" 0 #xac nil "\\==")
      ;; Handle move constructors
      ("&&" "&&" 0 #x2227 ,(rx (any alnum ?_) point))
@@ -475,20 +382,119 @@ CHAR-SPEC can be an integer or anything else (passed to
      ;; Avoid >>=, <<=
      (">=" ">=" 0 #x2265 ">\\=")
      ("<=" "<=" 0 #x2264 "<\\="))
+
     (:python
      ("not" "\\_<not\\_>" 0 #xac "\\_<is *\\=")
      ("<<" "<<" 0 #x226a)
-     (">>" ">>" 0 #x226b)))
-  "List of common mode-specific defaults.")
+     (">>" ">>" 0 #x226b))
+
+    (:haskell       ; many symbols that are useless in other languages
+     (".." . ("\\.\\." 0 #x2025))
+     ("-<" . ("\\_<-<\\_>" 0 #x2919))
+     (">-" . ("\\_<>-\\_>" 0 #x291a))
+     ("<*>" . ("<\\*>" 0 #x229b))
+     (">>" . ("\\_<>>\\_>" 0 #X226B))
+     ("<<" . ("\\_<<<\\_>" 0 #X226A))
+     (">>=" . ("\\_<>>=\\_>" 0 #X291C))
+     ("=<<" . ("\\_<=<<\\_>" 0 #X291B))
+     (">>>" . (">>>" 0 #X22D9))
+     ("<<<" . ("<<<" 0 #X22D8))
+     ("***" . ("\\*\\*\\*" 0 #X2042))
+     ("++" . ("\\_<\\+\\+\\_>" 0 #X29FA))
+     ("+++" . ("\\_<\\+\\+\\+\\_>" 0 #X29FB))
+     ("|||" . #X2AF4)
+     ("elem" . #X2208)
+     ("notElem" . #X2209)
+     ("union" . #X222A)
+     ("intersect" . #X2229)
+     ("msum" . #X2295)
+     ("Integer" . #X2124)
+     ("Ratio Integer" . #X211A)
+     ("Double" . #X211D)
+     ("Bool" . #X1D539))
+
+    (:julia
+     ("function" . ("\\_<function\\_>" 0 #x3bb "\n[[:space:]]*\\=")))
+
+    (:greek                     ; All fancy non-English alphabets
+     ;; NOTE Gamma and GAMMA would be indistinguishable, so only Gamma
+     ;; is supported. Same for all other capital letters.  Capital
+     ;; letters such as Alpha that already appear in English do not get
+     ;; defaults.
+     ("Gamma" . #x393)
+     ("Delta" . #x394)
+     ("Theta" . #x398)
+     ("Lambda" . #x39b)
+     ("Xi" . #x39e)
+     ("Pi" . #x3a0)
+     ("Sigma" . #x3a3)
+     ("Upsilon" . #x3d2)
+     ("Phi" . #x3a6)
+     ("Psi" . #x3a8)
+     ("Omega" . #x3a9)
+     ("alpha" . #x3b1)
+     ("beta" . #x3b2)
+     ("gamma" . #x3b3)
+     ("delta" . #x3b4)
+     ("epsilon" . #x3b5)
+     ("zeta" . #x3b6)
+     ("eta" . #x3b7)
+     ("theta" . #x3b8)
+     ("vartheta" . #x3d1)
+     ("kappa" . #x3ba)
+     ("lambda" . #x3bb)
+     ("mu" . #x3bc)
+     ("nu" . #x3bd)
+     ("xi" . #x3be)
+     ("pi" . #x3c0)
+     ("varpi" . #x3d6)
+     ("rho" . #x3c1)
+     ("varrho" . #x3f1)
+     ("varsigma" . #x3c2)
+     ("sigma" . #x3c3)
+     ("tau" . #x3c4)
+     ("upsilon" . #x3c5)
+     ("phi" . #x3d5)
+     ("varphi" . #x3c6)
+     ("chi" . #x3c7)
+     ("psi" . #x3c8)
+     ("omega" . #x3c9)
+
+     ;; NOTE Aren't these backward English letters properly called Cyrillic?
+     ;; NOTE Also RussianR will confuse those who expect it to be RussianIA.
+     ("RussianR" . #x42f)
+     ("RussianZ" . #x417)
+     ("RussianZH" . #x416)
+     ("RussianE" . #x42d)))
+  "An alist that maps strings to replacement rules, of the form
+
+  ((nil (STRING . CHAR-SPEC)
+        (STRING . (REGEX MATCH-GROUP CHAR-SPEC))
+        (STRING . (REGEX MATCH-GROUP CHAR-SPEC REJECT-BEFORE REJECT-AFTER)))
+   (:symbols ...)
+   (:c++ ...)
+   (:python ...)
+   (:greek ...))
+
+The \"nil\" top-level tag corresponds to characters that can be
+safely replaced directly without any extra checks. This is
+insufficient for some purposes. C++ identifiers might be
+surrounded with symbol/word-start/end regexes, and special chars
+will be replaced without looking at surroundings.
+
+The \"symbols\" tag corresponds to special symbols that are
+considered symbols by their languages, not punctuation. (In C++
+\">=\" consists of punctuation.)
+
+CHAR-SPEC can be an integer or anything else (passed to
+`compose-region' directly).")
 
 ;; }}}
 ;; {{{ Making default keywords
 
 (defun composite-symbols--default-lookup (label lang)
   (cdr (assoc label
-              (if lang
-                  (cdr (assoc lang composite-symbols-defaults-extra))
-                composite-symbols-defaults))))
+              (cdr (assoc lang composite-symbols-defaults)))))
 
 (defun composite-symbols-from-defaults-noopt (names &optional lang)
   "Return the default keywords for each string in NAMES.
@@ -692,7 +698,8 @@ appears a little too high.")
      )
    ;; This means that even words that are parts of bigger symbols get
    ;; displayed as greek characters.
-   'words)
+   'words
+   :greek)
   "Greek alphabet, plus four odd Russian letters.")
 
 ;; }}}
@@ -765,7 +772,7 @@ Also namespace access, right arrow, nullptr and NULL.")
 
 (defvar composite-symbols-python-rules
   (append
-   (composite-symbols-from-defaults '("&&" "||" "and" "or" "None"))
+   (composite-symbols-from-defaults '("&&" "||" "and" "or" "None" "lambda"))
    (composite-symbols-from-defaults '(">>" "<<" "not") nil :python)
    composite-symbols-comparison
    composite-symbols-member-access
@@ -784,7 +791,8 @@ None is shown as the empty set, but it could also be shown as ⟂.")
    '("-<" ">-" "<*>" ">>" "<<" ">>=" "=<<" ">>>" "<<<" "***" "++" "+++" "|||"
      ".." ; ranges in lists
      "elem" "notElem" "union" "intersect" "msum"
-     "Integer" "Ratio Integer" "Double" "Bool"))
+     "Integer" "Ratio Integer" "Double" "Bool")
+   nil :haskell)
   "Lots of characters for `haskell-mode' of varying craziness.
 
 See also the package
@@ -795,8 +803,12 @@ This conflicts with haskell-mode's own characters, so this should
 take precedence.")
 
 (defvar composite-symbols-julia-rules
-  (composite-symbols-from-defaults
-   '("..." "::" "<:" "nothing" "Float64" "Int" "Complex" "Bool"))
+  (append
+   (composite-symbols-from-defaults
+    '("..." "::" "<:" "nothing" "Float64" "Int" "Complex" "Bool"))
+   (composite-symbols-from-defaults
+    '("function")
+    nil :julia))
   "Special symbols for julia.")
 
 (defvar composite-symbols-default-mode-alist
@@ -833,7 +845,7 @@ take precedence.")
 (defun composite-symbols--compile-user (kw-list)
   (let (kw-defaults kw-user)
     (dolist (kw kw-list)
-      (if (assoc kw composite-symbols-defaults)
+      (if (composite-symbols--default-lookup kw nil)
           (push kw kw-defaults)
         (push kw kw-user)))
     (append
@@ -952,24 +964,6 @@ letters."
     (composite-symbols--enable composite-symbols-greek-rules))
    (t
     (composite-symbols--disable composite-symbols-greek-rules))))
-
-;; }}}
-;; {{{ Helper functions and debugging
-
-(defun composite-symbols--debug-symbols ()
-  "Insert a number of different symbols into current buffer.
-
-This is helpful when debugging symbols with missing fonts or
-incorrect font heights."
-  (insert "\n")
-  (dolist (spec composite-symbols-defaults)
-    (let ((name (car spec))
-          (d (cdr spec))
-          (header (if comment-start (format "%s " comment-start) "")))
-      (when (listp d) (setq d (nth 2 d)))
-      (insert
-       (format "%s%s: %s\n"
-               header name (if (integerp d) (format "%c" d) d))))))
 
 ;; }}}
 ;; {{{ Show unicode mode
