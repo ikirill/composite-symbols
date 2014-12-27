@@ -11,3 +11,7 @@ def f(x):
   x = x or ord(x) and andd(x) # ord and andd should not change
   psi = phi = psi_phi_1 = 1
   print((psi, phi, psi_phi_1))
+
+# Local Variables:
+# eval: (flycheck-mode -1)
+# End:

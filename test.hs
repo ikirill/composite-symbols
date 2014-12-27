@@ -9,3 +9,7 @@ alpha = 1
 beta = 2
 alpha_beta = alpha_beta
 alpha'beta = alpha'beta = alpha'beta'gamma'Gamma'delta'Delta
+
+-- Local Variables:
+-- eval: (flycheck-mode -1)
+-- End:

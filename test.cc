@@ -22,3 +22,7 @@ int main(const Type&& x, // no change
   phi = psi = Omega = omega = omega_1; // all should change
   alphabeta = 1; // no change
 }
+
+// Local Variables:
+// eval: (flycheck-mode -1)
+// End:
