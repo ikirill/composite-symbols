@@ -179,11 +179,11 @@ then MATCH will not be replaced."
     (setq char-spec (decode-char 'ucs char-spec)))
   (if (and (not reject-before) (not reject-after))
       (if (= match-group 0)
-          `(,match (0 (composite-symbols--compose ,char-spec)))
-        `(,match (,match-group (composite-symbols--compose ,char-spec ,match-group))))
+          `(,match (0 (composite-symbols--compose ,char-spec) prepend))
+        `(,match (,match-group (composite-symbols--compose ,char-spec ,match-group) prepend)))
     `(,match (,match-group
               (composite-symbols--compose-check
-               ,char-spec ,match-group ,reject-before ,reject-after)))))
+               ,char-spec ,match-group ,reject-before ,reject-after) prepend))))
 
 (defun composite-symbols--breaks-indentation (start end)
   "Whether the replacing the given length of text with one symbol
@@ -571,7 +571,7 @@ the different regexps are merged together, so that
                               (mapconcat 'identity merge-rest "\\|"))))))
     (if merged-regex
         (append
-         `((,merged-regex (0 (composite-symbols--compose-default ,lang))))
+         `((,merged-regex (0 (composite-symbols--compose-default ,lang) prepend)))
          (composite-symbols-from-defaults-noopt merge-not lang))
       (composite-symbols-from-defaults-noopt merge-not lang))))
 ;; (composite-symbols-from-defaults '("Gamma" "Delta" "Theta" "Pi" "Phi" "Psi" "!" "&&" "||" "++" "+++"))
