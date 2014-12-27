@@ -20,6 +20,13 @@ be modified).
 - For a starting point configuring your own replacement rules, look
   at the definition of `composite-symbols-assign-arrow-mode`.
 
+## Screenshot
+
+This is an artificial testing C++ file. When symbols change
+their lengths, indentation is, by default, not broken.
+
+![Screenshot](screenshot.png?raw=true "Screenshot")
+
 ### Notes:
 
 - There is a fair amount of variability in what you might prefer to
