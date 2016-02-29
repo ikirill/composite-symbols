@@ -89,7 +89,9 @@ be modified)."
 
 If non-nil, the resulting indentation will be based on
 already-composed symbols, and so will be different."
-  :group 'composite-symbols)
+  :group 'composite-symbols
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom composite-symbols-user-alist nil
   "An alist mapping modes to keywords that will be used by
@@ -357,6 +359,7 @@ broken."
      ("or" . #x2228)
 
      ("->" . #x2192)
+     ("=>" . #x21d2)
      ("<-" . #x2190)
      ("::" . #x2237)
      ("~" . #x223c)
@@ -409,18 +412,18 @@ broken."
 
     (:haskell       ; many symbols that are useless in other languages
      (".." . ("\\.\\." 0 #x2025))
-     ("-<" . ("\\_<-<\\_>" 0 #x2919))
-     (">-" . ("\\_<>-\\_>" 0 #x291a))
+     ("-<" . ("-<" 0 #x2919))
+     (">-" . (">-" 0 #x291a))
      ("<*>" . ("<\\*>" 0 #x229b))
-     (">>" . ("\\_<>>\\_>" 0 #X226B))
-     ("<<" . ("\\_<<<\\_>" 0 #X226A))
-     (">>=" . ("\\_<>>=\\_>" 0 #X291C))
-     ("=<<" . ("\\_<=<<\\_>" 0 #X291B))
+     (">>" . (">>" 0 #X226B ">\\=" "\\=[>=]"))
+     ("<<" . ("<<" 0 #X226A "[<=]\\=" "\\=<"))
+     (">>=" . (">>=" 0 #X291C))
+     ("=<<" . ("=<<" 0 #X291B))
      (">>>" . (">>>" 0 #X22D9))
      ("<<<" . ("<<<" 0 #X22D8))
      ("***" . ("\\*\\*\\*" 0 #X2042))
-     ("++" . ("\\_<\\+\\+\\_>" 0 #X29FA))
-     ("+++" . ("\\_<\\+\\+\\+\\_>" 0 #X29FB))
+     ("++" . ("\\+\\+" 0 #X29FA "\\+\\=" "\\=\\+"))
+     ("+++" . ("\\+\\+\\+" 0 #X29FB))
      ("|||" . #X2AF4)
      ("elem" . #X2208)
      ("notElem" . #X2209)
@@ -433,7 +436,11 @@ broken."
      ("Bool" . #X1D539))
 
     (:julia
-     ("function" . ("\\_<function\\_>" 0 #x3bb "\n[[:space:]]*\\=")))
+     ("!" "!" 0 #xac "\\(?:\\s_\\|\\sw\\)\\=" "\\==")
+     ("!=" "!=" 0 #x2262 nil "\\==")
+     ("|>" . #x25b7)
+     ("function" . #x3bb)
+     ("macro" . #x3bc))
 
     (:greek                     ; All fancy non-English alphabets
      ;; NOTE Gamma and GAMMA would be indistinguishable, so only Gamma
@@ -769,7 +776,7 @@ None is shown as the empty set, but it could also be shown as ⟂.")
 
 (defvar composite-symbols-haskell-rules
   (composite-symbols-from-defaults
-   '("-<" ">-" "<*>" ">>" "<<" ">>=" "=<<" ">>>" "<<<" "***" "++" "+++" "|||"
+   '("-<" ">-" "<*>" ">>=" "=<<" ">>" "<<" ">>>" "<<<" "***" "++" "+++" "|||"
      ".." ; ranges in lists
      "elem" "notElem" "union" "intersect" "msum"
      "Integer" "Ratio Integer" "Double" "Bool")
@@ -786,17 +793,26 @@ take precedence.")
 (defvar composite-symbols-julia-rules
   (append
    (composite-symbols-from-defaults
-    '("..." "::" "<:" "nothing" "Float64" "Int" "Complex" "Bool"))
+    '("..." "::" "<:" "nothing" "Float64" "Int" "Complex" "Bool"
+      "&&" "||" "=>"))
    (composite-symbols-from-defaults
-    '("function")
+    '("<<" ">>" "->" ">=" "<=")
+    :c++)
+   (composite-symbols-from-defaults
+    '("!" "function" "macro" "!=" "|>")
     :julia))
   "Special symbols for julia.")
+
+(defvar composite-symbols-known-rule-names
+  '(cc python haskell lisp julia)
+  "List of already known rules for comp")
 
 (defvar composite-symbols-default-mode-alist
   ;; FIXME This list is *very* incomplete and untested
   `(;; C-style
     (c-mode . composite-symbols-cc-rules)
     (c++-mode . composite-symbols-cc-rules)
+    (glsl-mode . composite-symbols-cc-rules)
     (objc-mode . composite-symbols-cc-rules)
     (sh-mode . composite-symbols-cc-rules)
     (perl-mode . composite-symbols-cc-rules)
@@ -907,19 +923,28 @@ Notes:
   code that haskell-mode uses to fontify haskell code."
   :group 'composite-symbols
   (let ((user-kw (cdr (assq major-mode composite-symbols-user-alist)))
-        (default-kw (cdr (assq major-mode composite-symbols-default-mode-alist)))
+        default-kw
         kw)
+    (let ((check-mode major-mode))
+      (while (and check-mode (not default-kw))
+        (setq
+         default-kw (cdr (assq check-mode composite-symbols-default-mode-alist))
+         check-mode (get check-mode 'derived-mode-parent))))
     (when (and user-kw (listp user-kw))
       (setq user-kw (composite-symbols--compile-user user-kw))
       (when composite-symbols-mode
         (message "User keywords: %s" (prin1-to-string user-kw))))
     (setq kw (or user-kw default-kw))
     (when (symbolp kw) (setq kw (symbol-value kw)))
+    (unless kw
+      (let* ((presets (mapcar #'symbol-name composite-symbols-known-rule-names))
+             (s (ido-completing-read "Select composite-symbols rule: " presets nil t)))
+        (setq kw (symbol-value (intern (concat "composite-symbols-" s "-rules"))))))
     (cond
      ((not kw)
       ;; Warn in case this is a misconfiguration problem.
       (when (and major-mode
-                 (get major-mode 'derived-mode-parent))
+               (get major-mode 'derived-mode-parent))
         (message "Composite-symbols: mode %s is not known." major-mode)))
      (composite-symbols-mode
       (composite-symbols--enable kw))
