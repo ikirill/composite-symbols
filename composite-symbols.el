@@ -760,7 +760,7 @@ Also namespace access, right arrow, nullptr and NULL.")
 (defvar composite-symbols-python-rules
   (append
    (composite-symbols-from-defaults
-    '("&&" "||" "<=" ">=" "and" "or" "None" "lambda"))
+    '("&&" "||" "<=" ">=" "!=" "and" "or" "None" "lambda"))
    (composite-symbols-from-defaults
     '(">>" "<<" "not") :python)
    composite-symbols-member-access
@@ -936,16 +936,17 @@ Notes:
         (message "User keywords: %s" (prin1-to-string user-kw))))
     (setq kw (or user-kw default-kw))
     (when (symbolp kw) (setq kw (symbol-value kw)))
-    (unless kw
+    (when (and (not kw) composite-symbols-mode (called-interactively-p 'interactive))
       (let* ((presets (mapcar #'symbol-name composite-symbols-known-rule-names))
              (s (ido-completing-read "Select composite-symbols rule: " presets nil t)))
         (setq kw (symbol-value (intern (concat "composite-symbols-" s "-rules"))))))
-    (cond
-     ((not kw)
+    (when (not kw)
       ;; Warn in case this is a misconfiguration problem.
       (when (and major-mode
                (get major-mode 'derived-mode-parent))
-        (message "Composite-symbols: mode %s is not known." major-mode)))
+        (message "Composite-symbols: mode %s is not known." major-mode))
+      (setq-local composite-symbols-mode nil))
+    (cond
      (composite-symbols-mode
       (composite-symbols--enable kw))
      (t
