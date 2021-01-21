@@ -760,7 +760,7 @@ Also namespace access, right arrow, nullptr and NULL.")
 (defvar composite-symbols-python-rules
   (append
    (composite-symbols-from-defaults
-    '("&&" "||" "<=" ">=" "!=" "and" "or" "None" "lambda"))
+    '("&&" "||" "<=" ">=" "!=" "and" "or" "None" "lambda" "->"))
    (composite-symbols-from-defaults
     '(">>" "<<" "not") :python)
    composite-symbols-member-access
@@ -799,7 +799,8 @@ take precedence.")
     '("<<" ">>" "->" ">=" "<=")
     :c++)
    (composite-symbols-from-defaults
-    '("!" "function" "macro" "!=" "|>")
+    ;; No "!" because it’s quite overloaded especially by DataFrames.jl
+    '("function" "macro" "!=" "|>")
     :julia))
   "Special symbols for julia.")
 
