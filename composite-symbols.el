@@ -947,10 +947,10 @@ Notes:
              (s (ido-completing-read "Select composite-symbols rule: " presets nil t)))
         (setq kw (symbol-value (intern (concat "composite-symbols-" s "-rules"))))))
     (when (not kw)
-      ;; Warn in case this is a misconfiguration problem.
-      (when (and major-mode
-               (get major-mode 'derived-mode-parent))
-        (message "Composite-symbols: mode %s is not known." major-mode))
+      ;; ;; Warn in case this is a misconfiguration problem.
+      ;; (when (and major-mode
+      ;;          (get major-mode 'derived-mode-parent))
+      ;;   (message "Composite-symbols: mode %s is not known." major-mode))
       (setq-local composite-symbols-mode nil))
     (cond
      (composite-symbols-mode
