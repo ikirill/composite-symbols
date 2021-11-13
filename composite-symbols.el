@@ -808,6 +808,10 @@ take precedence.")
   '(cc python haskell lisp julia)
   "List of already known rules for comp")
 
+(defvar composite-symbols-js-rules
+  (composite-symbols-from-defaults
+   '("!=" "||" "&&" "=>")))
+
 (defvar composite-symbols-default-mode-alist
   ;; FIXME This list is *very* incomplete and untested
   `(;; C-style
@@ -821,6 +825,7 @@ take precedence.")
     (ess-mode . composite-symbols-cc-rules)
     (ruby-mode . composite-symbols-cc-rules)
     (javascript-mode . composite-symbols-cc-rules)
+    (js-mode . composite-symbols-js-rules)
 
     (python-mode . composite-symbols-python-rules)
 
