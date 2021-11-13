@@ -1,5 +1,11 @@
 # Composite special symbols for programming
 
+I wrote this as a toy a long time ago because I wanted emacs’s symbol
+composition rules to have arbitrary matching regexes to the
+left/right, mostly. This mode might be a little more precise than
+`prettify-symbols-mode` in terms of what it highlights, but you
+probably want to use that one.
+
 This mode replaces some special symbols with corresponding unicode
 characters. For example, it will replace "<=" with <LESS-THAN> '<',
 and "None" with <EMPTY SET> '∅' (with default settings, which can
