@@ -809,8 +809,11 @@ take precedence.")
   "List of already known rules for comp")
 
 (defvar composite-symbols-js-rules
-  (composite-symbols-from-defaults
-   '("!=" "||" "&&" "=>")))
+  (append
+   (composite-symbols-from-defaults
+    '("||" "&&" "=>"))
+   (composite-symbols-from-defaults
+    '("!=") :julia)))
 
 (defvar composite-symbols-default-mode-alist
   ;; FIXME This list is *very* incomplete and untested
