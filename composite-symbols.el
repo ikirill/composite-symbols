@@ -6,7 +6,7 @@
 ;; Version: 0.1
 ;; Keywords: faces, convenience
 ;; URL: https://github.com/ikirill/composite-symbols
-;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
+;; Package-Requires: ((emacs "24") (cl-lib "0.5") (dash "2.19.1"))
 ;;
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -72,6 +72,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'dash)
 
 ;; {{{ Customizations
 
@@ -208,9 +209,7 @@ of the symbol is indented relative to the current line."
     (if (and face (listp face))
         ;; This is necessary because sometimes face is a face composed
         ;; of more than one face
-        (apply #'or
-               (mapcar (lambda (it) (memq it composite-symbols-ignored-faces))
-                       face))
+        (-any-p (lambda (it) (memq it composite-symbols-ignored-faces)) face)
       (memq face composite-symbols-ignored-faces))))
 
 (defun composite-symbols--compose (char-spec &optional group)
