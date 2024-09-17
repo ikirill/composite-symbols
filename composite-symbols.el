@@ -799,7 +799,7 @@ take precedence.")
     :c++)
    (composite-symbols-from-defaults
     ;; No "!" because it’s quite overloaded especially by DataFrames.jl
-    '("function" "macro" "!=" "|>")
+    '("function" "macro" "!=" "|>" "!")
     :julia))
   "Special symbols for julia.")
 
